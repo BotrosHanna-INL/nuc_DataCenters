@@ -133,10 +133,54 @@ def calculate_tipping_cost(lr, FOAK_cost_info, demand, power ):
 
 
 
-# SR_to_Large_0 = 10  
-# SR_to_Large_1 = 1
-# SR_to_Large_interval = 0.1
-# cost_info = [SR_to_Large_0, SR_to_Large_1, SR_to_Large_interval ]
 
 
-# calculate_tipping_cost(0.15, cost_info, 2000, 1 )
+def reactor_on_durations(delay, fuel_lifetime, refuel_period, levelization ):
+
+    fuel_cycle_start = delay # initizalition
+    cycle_num = 0
+    fuel_cycle_start_list = []
+    fuel_cycle_end_list = []
+    
+    while (fuel_cycle_start - delay) < levelization:
+
+        fuel_cycle_start = delay +cycle_num*(fuel_lifetime+refuel_period)
+        fuel_cycle_end = fuel_cycle_start+ fuel_lifetime
+        cycle_num = cycle_num +1
+        
+        if fuel_cycle_start< levelization:
+            fuel_cycle_start_list.append(fuel_cycle_start)
+            fuel_cycle_end_list.append(fuel_cycle_end )
+    
+    if fuel_cycle_end_list[-1 ] > levelization: 
+        fuel_cycle_end_list[-1 ]= levelization
+    
+    return fuel_cycle_start_list, fuel_cycle_end_list     
+        
+
+
+ 
+def calculate_duty_cycle(inital_delay, fuel_lifetime, refuel_period, levelization, power, t):
+    
+    fuel_cycle_durations = reactor_on_durations(inital_delay, fuel_lifetime,  refuel_period, levelization )
+    fuel_cycle_start = fuel_cycle_durations[0]
+    fuel_cycle_end = fuel_cycle_durations[-1]
+
+    
+    # initialize
+    power_dict  = {}
+    if t in range(levelization+1):
+        
+        power_dict[t] = 0
+        
+
+    for n in range(len(fuel_cycle_start )):
+        start_time = fuel_cycle_start[n]
+        
+        end_time = fuel_cycle_end [n]
+
+        if t in range(start_time, end_time +1):
+            power_dict[t] = power
+    
+
+    return power_dict[t]        
