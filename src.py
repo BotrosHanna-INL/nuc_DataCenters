@@ -97,7 +97,7 @@ def calculate_tipping_learning_rate(LR_info, demand, power , ref_large_reactor_p
             
             if SR_reduced_cost < 1:
                 LR_tipping_point = lr_save[-2]
-                # print("hi" , LR_tipping_point )
+               
                 break
         return LR_tipping_point, initial_cost_ratio     
     
@@ -184,3 +184,106 @@ def calculate_duty_cycle(inital_delay, fuel_lifetime, refuel_period, levelizatio
     
 
     return power_dict[t]        
+
+
+
+
+
+def calculate_schedule_multiple_reactors(fuel_lifetime, refueling_period, num_reactors, power, levelization_period):
+    
+    if num_reactors <= (fuel_lifetime/refueling_period):
+        initial_delay_list =list(refueling_period*np.linspace(0,  num_reactors-1, num_reactors) )
+        P_list_tot = []
+        for i in range(len(initial_delay_list)):
+            
+            delay = initial_delay_list[i] 
+            
+            t_list = []
+            P_list = []
+
+            for time in range(levelization_period+1):
+            
+                P = calculate_duty_cycle( int( delay), fuel_lifetime, refueling_period, levelization_period, power, time)
+            
+                t_list.append(time)
+                P_list.append(P)
+
+            P_list_tot.append(P_list)
+    elif num_reactors > (fuel_lifetime/refueling_period):
+        
+        num_reactors_down_max = int(np.ceil(num_reactors * refueling_period/fuel_lifetime))
+        num_reactors_down_min = int(np.floor(num_reactors * refueling_period/fuel_lifetime))
+
+        # how many times the celing value is used
+        num_reactors_down_max_freq = int(np.ceil((num_reactors * refueling_period )% fuel_lifetime)/refueling_period) 
+        num_reactors_down_min_freq = int(fuel_lifetime /refueling_period)- num_reactors_down_max_freq
+
+        reactor_down_list1 = [num_reactors_down_max ]*num_reactors_down_max_freq
+        reactor_down_list2 = [num_reactors_down_min ]*num_reactors_down_min_freq
+        reactor_down_list = reactor_down_list1  + reactor_down_list2
+
+        assert len(reactor_down_list  ) == int(fuel_lifetime/refueling_period ) , "There is an assertion error. review!"
+
+        initial_delay_list = []
+        for n in np.linspace(0,  int(fuel_lifetime/refueling_period )-1, int(fuel_lifetime/refueling_period )):
+
+            delay_list = [n*refueling_period] * reactor_down_list [int(n)]
+            initial_delay_list.append(delay_list )
+        initial_delay_list = list(np.hstack(initial_delay_list))
+
+
+        P_list_tot = []
+        for i in range(len(initial_delay_list)):
+            
+            delay = initial_delay_list[i] 
+            
+            t_list = []
+            P_list = []
+
+            for time in range(levelization_period+1):
+            
+                P = calculate_duty_cycle( int( delay), fuel_lifetime, refueling_period, levelization_period, power, time)
+            
+                t_list.append(time)
+                P_list.append(P)
+
+            P_list_tot.append(P_list)
+    
+    fullPower_duration = initial_delay_list[-1]
+    
+    return  t_list,  P_list_tot, fullPower_duration        
+            
+            
+            
+
+
+def capacity_factor(fuel_lifetime, refueling_period, num_reactors, power1, levelization_period, demand):
+    
+    schedule = calculate_schedule_multiple_reactors(fuel_lifetime, refueling_period, num_reactors, power1, levelization_period) 
+    times =  schedule[0]
+    powers =  schedule[1]
+    P_list_tot_array = (np.vstack(powers))
+    
+
+    # # remove the data before getting to the full power
+    times_array =np.reshape(np.array(times) , (1, len(times)))
+    times_power_array = np.concatenate((times_array , P_list_tot_array)) # merging the time and power in one array
+    times_power_array_excludingRampUp = times_power_array[:,int(schedule[2]):] # remove the initial rampup period
+
+    #extract time and power after excluding the initial ramp up period
+    times_array_excludingRampUp = times_power_array_excludingRampUp[0]
+    power_array_excludingRampUp = np.delete(times_power_array_excludingRampUp, (0), axis=0)
+
+
+    # nominal power and actual power
+    tot_nom_output_t    = demand # power per reactor * number of reactors (i.e. the total power)
+    tot_actual_output_t =  sum(power_array_excludingRampUp)
+    capacity_factor_t = tot_actual_output_t/tot_nom_output_t 
+
+    
+
+    tot_nom_output = tot_nom_output_t * (len(times_array_excludingRampUp)) # total power per day of all reactors multiplied by the number of days
+    tot_actual_output_t = sum(tot_actual_output_t)
+    overall_capacity_factor = tot_actual_output_t/tot_nom_output
+
+    return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor                 
