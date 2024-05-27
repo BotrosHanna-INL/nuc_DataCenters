@@ -110,7 +110,13 @@ def calculate_tipping_cost(lr, FOAK_cost_info, demand, power ):
     min_ratio, max_ratio, cost_interval = FOAK_cost_info
     num_cost = int(np.ceil(1 + abs(max_ratio - min_ratio)/  cost_interval ) )  #num of cost ratio samples
     
-
+    cost_reduction_sum = 0 # initizalition 
+    num_reactors =int( np.ceil(demand /power))  # it has to be the ceiling
+                  
+    for nn in range(1, num_reactors +1):# cost decreases from NOAK to FOAK and averaged over the number of reactors built
+        cost_reduction_sum += ( (1 - lr) **(np.log2(nn)))
+    cost_reduction_factor = cost_reduction_sum/num_reactors
+    
     FOAK_cost_save =[]
     
     for init_cost in np.linspace(min_ratio , max_ratio ,num_cost):
@@ -128,17 +134,6 @@ def calculate_tipping_cost(lr, FOAK_cost_info, demand, power ):
 
 
 
-def calculate_final_cost_due_to_learning_rate(initial_cost_usd_per_kw, learning_rate, num_reactors ):
-    cost_reduction_sum = 0 # initizalition 
-    
-    for nn in range(1, num_reactors +1):# cost decreases from NOAK to FOAK and averaged over the number of reactors built
-        cost_reduction_sum += ( (1 - learning_rate) **(np.log2(nn)))
-    cost_reduction_factor = cost_reduction_sum/num_reactors   
-    reduced_cost_used_kw =   initial_cost_usd_per_kw *  cost_reduction_factor
-
-
-    return reduced_cost_used_kw
- 
 
 def reactor_on_durations(delay, fuel_lifetime, refuel_period, levelization ):
 
@@ -292,22 +287,3 @@ def capacity_factor(fuel_lifetime, refueling_period, num_reactors, power1, level
     overall_capacity_factor = tot_actual_output_t/tot_nom_output
 
     return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor                 
-
-
-
-def num_reactors_needed_for_overall_capacity_factor(overall_capacity_factor_criteria, min_capacity_factor_criteria,fuel_lifetime, refueling_period, power, levelization_period, demand_0):
-    
-    num_reactors_0 =  int( np.ceil( demand_0 /power))
-    for  num_reactors in np.linspace( num_reactors_0 , 5*num_reactors_0, 4*num_reactors_0+1):
-        capacity_factor_results = (capacity_factor(fuel_lifetime, refueling_period, int(num_reactors), power, levelization_period, demand_0 ))
-        
-        # times_array_excludingRampUp = capacity_factor_results[0]
-        capacity_factor_min =    min (capacity_factor_results[1])
-        overall_capacity_factor   =   capacity_factor_results[2]
-        
-        if  overall_capacity_factor>=  overall_capacity_factor_criteria:
-            if capacity_factor_min >= min_capacity_factor_criteria:
-                num_reactors_final = num_reactors
-                break
-
-    return num_reactors_final        
