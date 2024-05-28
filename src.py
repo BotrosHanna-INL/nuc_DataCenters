@@ -295,7 +295,7 @@ def capacity_factor(fuel_lifetime, refueling_period, num_reactors, power1, level
 
 
 
-def num_reactors_needed_for_overall_capacity_factor(overall_capacity_factor_criteria, min_capacity_factor_criteria,fuel_lifetime, refueling_period, power, levelization_period, demand_0):
+def num_reactors_needed_for_capacity_factor(overall_capacity_factor_criteria, min_capacity_factor_criteria,fuel_lifetime, refueling_period, power, levelization_period, demand_0):
     
     num_reactors_0 =  int( np.ceil( demand_0 /power))
     for  num_reactors in np.linspace( num_reactors_0 , 5*num_reactors_0, 4*num_reactors_0+1):
