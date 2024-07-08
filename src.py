@@ -595,7 +595,7 @@ def capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, 
     #extract time and power after excluding the initial ramp up period
     times_array_excludingRampUp = times_power_array_excludingRampUp[0]
     power_array_excludingRampUp = np.delete(times_power_array_excludingRampUp, (0), axis=0)
-
+    
     # nominal power and actual power
     tot_nom_output_t    = demand # power per reactor * number of reactors (i.e. the total power)
     tot_actual_output_t =  sum(power_array_excludingRampUp)
@@ -604,12 +604,80 @@ def capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, 
     
 
     tot_nom_output = tot_nom_output_t * (len(times_array_excludingRampUp)) # total power per day of all reactors multiplied by the number of days
-    tot_actual_output_t = sum(tot_actual_output_t)
-    overall_capacity_factor = tot_actual_output_t/tot_nom_output
+    
+    tot_actual_output_ttt = sum(tot_actual_output_t)
+    
+    overall_capacity_factor = tot_actual_output_ttt/tot_nom_output
 
-    return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor                 
 
+    # time in years
+    t_years = np.floor (times_array_excludingRampUp/ 52.1785714286) + 1
+    # make sure that you start at year (1) even when the reactors take more than a year to ramp up
+    
+    t_years_modified  = t_years - min(t_years) +1 # time in years
+    
+    # Use the output (tot_actual_output_t) to create a list of production and excess energy
+    excess_energy =  [0] * (len(tot_actual_output_t))
+    energy_produced_per_demand =  [0] * (len(tot_actual_output_t))
+    tot_actual_output_t_mwh =  [0] * (len(tot_actual_output_t))
+    
+    for i in range(len(tot_actual_output_t)):
+        if tot_actual_output_t[i] <= demand:
+            excess_energy [i] = 0
+            energy_produced_per_demand[i] = tot_actual_output_t[i] * 168 # hours per week
+            tot_actual_output_t_mwh[i] = tot_actual_output_t[i] * 168 # hours per week
+            
+        elif tot_actual_output_t[i] > demand :
+            excess_energy [i] =  (tot_actual_output_t[i] - demand) * 168
+            energy_produced_per_demand[i] = demand * 168 # hours per week
+            tot_actual_output_t_mwh[i] = tot_actual_output_t[i] * 168 # hours per week
+    
+    
+    # tot yearly production 
+    tot_yearly_production = {}
+    
+    # Iterate through the lists simultaneously
+    for year, production_tot in zip(t_years_modified, tot_actual_output_t_mwh):
+        if year in tot_yearly_production :
+            # If the year is already in the dictionary, add the production value
+            tot_yearly_production [year] += production_tot
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            tot_yearly_production [year] = production_tot
 
+    #  yearly production per demand
+    yearly_production_per_demand = {}
+    
+    # Iterate through the lists simultaneously
+    for year, production in zip(t_years_modified, energy_produced_per_demand):
+        if year in yearly_production_per_demand :
+            # If the year is already in the dictionary, add the production value
+            yearly_production_per_demand [year] += production
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            yearly_production_per_demand [year] = production
+
+     
+    # yearly excess energy
+    yearly_excess_energy = {} 
+    
+    # Iterate through the lists simultaneously
+    for year, excess in zip(t_years_modified, excess_energy):
+        if year in yearly_excess_energy :
+            # If the year is already in the dictionary, add the production value
+            yearly_excess_energy [year] += excess
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            yearly_excess_energy [year] =excess   
+    
+    
+           
+            
+    MW_hours_generated_per_year_total = list(tot_yearly_production .values())
+    MW_hours_generated_per_year_per_demand = list(yearly_production_per_demand.values())
+    MW_hours_excess_per_year = list(yearly_excess_energy.values())
+    return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor, MW_hours_generated_per_year_total, MW_hours_generated_per_year_per_demand ,MW_hours_excess_per_year
+                 
 
 def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_factor_criteria, min_capacity_factor_criteria, fuel_lifetime_weeks, refueling_period_weeks, power, levelization_period_weeks, demand_0):
 
