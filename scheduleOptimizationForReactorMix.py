@@ -1,9 +1,13 @@
-from src import operational_lifetime_estimate, refueling_period_estimate, calculate_duty_cycle_weeks_approach,\
-    levelization_period_weeks
+# from src import operational_lifetime_estimate, refueling_period_estimate, calculate_duty_cycle_weeks_approach,\
+#     levelization_period_weeks
 
 import pygad
 import numpy as np
 import time
+
+from src import operational_lifetime_estimate , refueling_period_estimate,  calculate_duty_cycle_weeks_approach
+
+
 
 def min_tot_P(power_list , initial_delay_list, levelization_period_weeks): # operational_lifetime_delta_list, refueling_operation_delta_list
    
@@ -97,7 +101,7 @@ def initial_population(power_list, sol_per_pop):
     initial_population = [] 
     for i in range(sol_per_pop ) :
         initial_population.append(initial_population_0 )
-
+    
     return initial_population, allow_duplicate, expected_output 
 
 
@@ -184,7 +188,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ):
     end_time = time.time() 
     # print(f"Number of generations passed is {ga_instance.generations_completed}")
     
-    ga_instance.plot_fitness()
+    # ga_instance.plot_fitness()
     
     sol, sol_fitness, _ = ga_instance.best_solution()
     print("\n The program runtime is " , np.round( (end_time -start_time), 0), " sec", " & The Number of Generations Passed is ",\
@@ -208,32 +212,150 @@ def optimize_schedule(power_list,  levelization_period_weeks ):
 
 
 
-optimize_schedule([ 20, 1 , 1 , 1, 20, 500, 1, 1, 5, 5, 10, 30, 50],  520 )
+# bbb = optimize_schedule([ 20, 1 , 1 , 1, 20, 500, 1, 1, 5, 5, 10, 30, 50],  520 )
 # 
 # optimize_schedule([ 20, 1 , 1 , 1, 20, 500, 1, 1, 5, 5, 10, 30, 50, 50],  2*520 )
 
-# optimize_schedule([ 20, 1 , 1 , 1, 20, 500, 1, 1, 5, 5, 10, 30, 50, 50, 200],  2*520 )
-
-# a =  [1] * 1000
-# optimize_schedule(a,  2*520 )
+# bbb = optimize_schedule([ 20, 1 , 1 , 1, 20, 500, 1, 1, 5, 5, 10, 30, 50, 50, 200],  2*520 )
 
 
 
 
+from src import OM_cost_per_MWh
 
 
 
- 
+def capacity_factor_weeks_approach_mix_reactors(long_list_of_powers,levelization_period_weeks, demand):
+    
+
+    schedule = optimize_schedule(long_list_of_powers, levelization_period_weeks) 
+
+    times =  schedule[0] # This is the time in weeks
+    powers =  schedule[1]
+    
+    #OM Cost. Since it is per Mwh, i multiply it by the 168 hours per week (because the time is in weeks)
+    OM_costs = [[168*element*OM_cost_per_MWh(element) for element in row] for row in powers]
    
- 
-                   
+    
+    P_list_tot_array = (np.vstack(powers))
+    OM_costs_array = (np.vstack(OM_costs))
+   
+   
+    # sum powers of several reactors per day
+    P_list_tot_array_sum = [0]* len(P_list_tot_array)
+    for i in range(len(P_list_tot_array_sum )):
+        P_list_tot_array_sum[i] = sum(P_list_tot_array[i])
+        
+    # sum costs of several reactors per day    
+    OM_cost_list_tot_array_sum = [0]* len(OM_costs_array) 
+    for i in range(len(OM_cost_list_tot_array_sum)):
+        OM_cost_list_tot_array_sum[i] = sum(OM_costs_array[i] )
+    
+    
+    
+    #extract time and power after excluding the initial ramp up period
+    times_array_excludingRampUp = times
+
+    
+    # nominal power and actual power
+    tot_nom_output_t    = demand # power per reactor * number of reactors (i.e. the total power)
+    tot_actual_output_t =  P_list_tot_array_sum
+    
+    capacity_factor_t = np.array(tot_actual_output_t)/demand    
+
+    tot_nom_output = tot_nom_output_t * (len(times_array_excludingRampUp)) # total power per day of all reactors multiplied by the number of days
+    
+    tot_actual_output_ttt = sum(tot_actual_output_t)
+    
+    overall_capacity_factor = tot_actual_output_ttt/tot_nom_output
 
 
+    # time in years
+    t_years = np.floor (np.array(times_array_excludingRampUp)/ 52.1785714286) + 1
+    # make sure that you start at year (1) even when the reactors take more than a year to ramp up
+    
+    t_years_modified  = t_years - min(t_years) +1 # time in years
+    
+    # Use the output (tot_actual_output_t) to create a list of production and excess energy
+    excess_energy =  [0] * (len(tot_actual_output_t))
+    energy_produced_per_demand =  [0] * (len(tot_actual_output_t))
+    tot_actual_output_t_mwh =  [0] * (len(tot_actual_output_t))
+    
+    for i in range(len(tot_actual_output_t)):
+        if tot_actual_output_t[i] <= demand:
+            excess_energy [i] = 0
+            energy_produced_per_demand[i] = tot_actual_output_t[i] * 168 # hours per week
+            tot_actual_output_t_mwh[i] = tot_actual_output_t[i] * 168 # hours per week
+            
+        elif tot_actual_output_t[i] > demand :
+            excess_energy [i] =  (tot_actual_output_t[i] - demand) * 168
+            energy_produced_per_demand[i] = demand * 168 # hours per week
+            tot_actual_output_t_mwh[i] = tot_actual_output_t[i] * 168 # hours per week
+    
+    
+    # tot yearly production 
+    tot_yearly_production = {}
+    
+    # Iterate through the lists simultaneously
+    for year, production_tot in zip(t_years_modified, tot_actual_output_t_mwh):
+        if year in tot_yearly_production :
+            # If the year is already in the dictionary, add the production value
+            tot_yearly_production [year] += production_tot
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            tot_yearly_production [year] = production_tot
 
+    #  yearly production per demand
+    yearly_production_per_demand = {}
+    
+    # Iterate through the lists simultaneously
+    for year, production in zip(t_years_modified, energy_produced_per_demand):
+        if year in yearly_production_per_demand :
+            # If the year is already in the dictionary, add the production value
+            yearly_production_per_demand [year] += production
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            yearly_production_per_demand [year] = production
 
+     
+    # yearly excess energy
+    yearly_excess_energy = {} 
+    
+    # Iterate through the lists simultaneously
+    for year, excess in zip(t_years_modified, excess_energy):
+        if year in yearly_excess_energy :
+            # If the year is already in the dictionary, add the production value
+            yearly_excess_energy [year] += excess
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            yearly_excess_energy [year] =excess   
+    
+    
+    # yearly OM_cost (dollars)
+    yearly_OM_cost = {} 
+    
+    # Iterate through the lists simultaneously
+    for year, excess in zip(t_years_modified, OM_cost_list_tot_array_sum):
+        if year in yearly_OM_cost  :
+            # If the year is already in the dictionary, add the production value
+            yearly_OM_cost  [year] += excess
+        else:
+            # If the year is not in the dictionary, initialize it with the production value
+            yearly_OM_cost  [year] =excess
+           
+            
+    MW_hours_generated_per_year_total = list(tot_yearly_production .values())
+    MW_hours_generated_per_year_per_demand = list(yearly_production_per_demand.values())
+    MW_hours_excess_per_year = list(yearly_excess_energy.values())
+    yearly_OM_cost_list = list(yearly_OM_cost.values ())
+    
+    return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor, MW_hours_generated_per_year_total,\
+        MW_hours_generated_per_year_per_demand , MW_hours_excess_per_year, yearly_OM_cost_list
+                 
 
-
-
+   
+# a = ((  (capacity_factor_weeks_approach_mix_reactors( [500, 200, 100, 100, 1], 52*30, 900))[6]))
+# print(min(a)/1000000)
 
 
 

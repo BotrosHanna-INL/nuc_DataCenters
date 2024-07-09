@@ -2,7 +2,6 @@ import numpy as np
 
 
 
-
 # # def sample_cost(demand, P_info, LR_info, FOAK_cost_info ):
     
 # #     P_min, P_max, P_interval = P_info
@@ -573,15 +572,64 @@ def calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, ref
 
 
 
+##### O & M COST   #####
+from scipy.optimize import curve_fit
 
+# One of the shortcomings here is that the O&M cost is independent of the fuel lifetime
+#Large reactor O&M Costs 
+OM_large_hi = 39.8 # Total O&M ($/MWh)
+OM_large_medium = 34.6 # Total O&M ($/MWh)
 
+# SMR
+OM_SMR_hi = 41.4  # Total O&M ($/MWh)     
+OM_SMR_medium = 30.2 # Total O&M ($/MWh)
 
+#Microreactors
+# https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_66425.pdf: TABLE 18
+ # # multuplied by 1.175625 (inflation multuplier from 2019 to 2023) using :https://fred.stlouisfed.org/series/GDPDEF#0\n
 
+OM_Micro_Avg = 1.175625*np.mean([69, 103, 137, 125, 136, 59]) # 2019$/MWh
+OM_Micro_std = 1.175625*np.std([69, 103, 137, 125, 136, 59]) # 2019$/MWh
+OM_Mirco_medium = OM_Micro_Avg # $/MWh
+OM_Mirco_hi = OM_Micro_Avg+OM_Micro_std # $/MWh
 
+# print("O&M cost for large, SMR, microreactors ($/MWh) are ", OM_large_hi , OM_SMR_hi, OM_Mirco_hi )
 
-def capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, num_reactors, power1, levelization_period_weeks, demand):
+# def OM_cost_per_MWh(P):
+#     if P>500:
+#         OM_cost = OM_large_hi
+#     elif P<= 500 and P >50:
+#         OM_cost = M_SMR_hi
+#     elif  P <=50:  
+#         OM_cost = OM_Mirco_hi 
     
+#     return OM_cost   # $ /MWh   
+      
+power_large_ref = 1000 # MWe
+power_SMR_ref = 200 # MWe # the average power of the SMR in the sheet is 200 
+power_micro_ref = 5 # MW 
+def func_OM(x, a, b):  
+    return a*(x**b)
+
+xdata = [ power_large_ref,  power_SMR_ref, power_micro_ref ]
+ydata = [ OM_large_hi,  OM_SMR_hi, OM_Mirco_hi  ]
+popt_, p_cov_ = curve_fit(func_OM, xdata , ydata)
+
+def OM_cost_per_MWh(power):
+    if power == 0:
+        return 0
+    else:
+        return popt_[0] *(power**popt_[1]) # $/Mwh 
+
+
+
+
+
+def capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, num_reactors, power1,levelization_period_weeks, demand):
+    
+
     schedule = calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, num_reactors, power1, levelization_period_weeks) 
+
     times =  schedule[0] # This is the time in weeks
     powers =  schedule[1]
     
@@ -767,6 +815,18 @@ def operational_lifetime_estimate(reactor_power):
 
 
 
+def repeat_elements(elements, counts):
+    result = []
+    for element, count in zip(elements, counts):
+        result.extend([element] * count)
+    return result
+
+# Example usage:
+numbers = [1, 2, 3]
+repeat_counts = [2, 3, 1]
+
+
+
 
 
 # specify colors for each power
@@ -790,3 +850,91 @@ def color_of(power):
 
 
 # print(a)
+
+# from the meta analysis: https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_107010.pdf\n# Table 29
+# # Large reactors
+ 
+OCC_large_conservative = 7750 # USD/kW
+OCC_large_moderate = 5750
+cons_duration_large_conservative = 125 #(months)
+ 
+cons_duration_large_moderate = 82 #(months)
+power_large_ref = 1000 # MWe
+
+# SMR
+OCC_SMR_conservative = 10000 # USD/kW
+OCC_SMR_moderate = 7750 
+cons_duration_SMR_conservative = 71 #(months)
+cons_duration_SMR_moderate = 55 #(months)
+power_SMR_ref = 200 # MWe # the average power of the SMR in the sheet is 200 
+
+
+#Microreactors\n# from the lit review : https://www.osti.gov/biblio/1986466: Table 17 (scaled data) only OCC. The data that had the financing cost were excluded
+# # all of them are multuplied by 1.175625 (inflation multuplier from 2019 to 2023) using :https://fred.stlouisfed.org/series/GDPDEF#0\n
+MR_cost_1  = 10000 * 1.175625 
+MR_cost_2 = + 15000 *1.175625
+MR_cost_3 =  20000 * 1.175625
+MR_cost_4 = 3996 * 1.175625  
+MR_cost_5 = 8276  * 1.175625 
+MR_cost_6 = 14973 * 1.175625
+MR_cost_average =np.mean ([MR_cost_1,MR_cost_2, MR_cost_3, MR_cost_4,MR_cost_5, MR_cost_6 ])
+MR_cost_std = np.std ([MR_cost_1,MR_cost_2, MR_cost_3, MR_cost_4,MR_cost_5, MR_cost_6 ])
+ 
+power_micro_ref = 5 # MW
+cons_duration_micro_conservative = 36 #(months) # I assumed this!
+
+OCC_micro_conservative = MR_cost_average + MR_cost_std # USD/kW
+OCC_micro_moderate = MR_cost_average
+
+# now lets do curve fitting\n
+def large_reactor_func(x, a, b):  
+    return a*(x**b)
+
+xdata1 = [ power_large_ref,  power_SMR_ref,power_micro_ref ]
+ydata1 = [ OCC_large_conservative,  OCC_SMR_conservative, OCC_micro_conservative  ]
+popt1, p_cov1 = curve_fit(large_reactor_func, xdata1 , ydata1)
+
+def occ_for_power(P):
+    return popt1[0] *(P**popt1[1]) # $/kw
+
+def construction_duration_power(P):
+    if P > 500:
+        duration =  cons_duration_large_conservative
+    if P <= 500 and P > 50:
+            duration =  cons_duration_SMR_conservative
+    elif P<= 50:     
+        duration =  cons_duration_micro_conservative
+    return duration
+
+
+
+def capital_investment(P, interest_rate):
+    construction_duration = construction_duration_power(P)
+    tot_overnight_cost = occ_for_power(P)
+    
+    # Interest rate from this equation (from Levi)
+    B =(1+ np.exp((np.log(1+ interest_rate)) * construction_duration/12))
+    C  =((np.log(1+ interest_rate)*(construction_duration/12)/3.14)**2+1)
+    Interest_expenses = tot_overnight_cost*((0.5*B/C)-1)
+    return (Interest_expenses + tot_overnight_cost) # this is TCI in $/kw
+
+def tot_TCI_multiple_reactors (P, interest_rate, num_reactors): # multiple reactors of the same power
+
+    # the capital investment of one reactor ($/kw)
+    levlized_TCI = capital_investment(P, interest_rate)
+    
+    if P >500:
+        learning_rate = 0.08
+    elif P<=500 :
+        learning_rate = 0.095 
+    
+    # the capital investment of one reactor ($/kw) after the learning rate effect
+    final_TCI = calculate_final_cost_due_to_learning_rate(levlized_TCI, learning_rate, num_reactors ) # This is still cost per kw
+    final_TCI_one_reactor = final_TCI *P*1000 #(Dollar)
+    final_TCI_all_reactors = final_TCI_one_reactor *num_reactors 
+    return final_TCI_all_reactors # (dollars)
+
+interest_rate = 0.06
+# print("TCIs for large, small, microreactors are : " ,\
+#     np.round(capital_investment( power_large_ref, interest_rate), 0),  np.round(capital_investment( power_SMR_ref, interest_rate), 0),\
+#         np.round(capital_investment(power_micro_ref , interest_rate), 0), "$/kw" )
