@@ -208,7 +208,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ):
     print(f"\nIt takes {np.round(schedule_rampup_duration*7/365, 2)} years to startup up all the reactors \n")
     
     
-    return schedule_times, schedule_powers, schedule_rampup_duration  
+    return schedule_times, schedule_powers, schedule_rampup_duration, sol
 
 
 
