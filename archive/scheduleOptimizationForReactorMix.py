@@ -5,7 +5,7 @@ import pygad
 import numpy as np
 import time
 
-from src import operational_lifetime_estimate , refueling_period_estimate,  calculate_duty_cycle_weeks_approach
+from economies_of_learning import operational_lifetime_estimate , refueling_period_estimate,  calculate_duty_cycle_weeks_approach
 
 
 
@@ -208,7 +208,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ):
     print(f"\nIt takes {np.round(schedule_rampup_duration*7/365, 2)} years to startup up all the reactors \n")
     
     
-    return schedule_times, schedule_powers, schedule_rampup_duration  
+    return schedule_times, schedule_powers, schedule_rampup_duration, sol
 
 
 
@@ -222,7 +222,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ):
 
 
 
-from src import OM_cost_per_MWh
+from economies_of_learning import OM_cost_per_MWh
 
 
 

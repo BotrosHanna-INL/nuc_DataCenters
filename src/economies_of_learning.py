@@ -9,12 +9,10 @@ def calculate_final_cost_due_to_learning_rate(initial_cost_usd_per_kw, learning_
     cost_reduction_factor = cost_reduction_sum/num_reactors   
     reduced_cost_used_kw =   initial_cost_usd_per_kw *  cost_reduction_factor
 
-
     return reduced_cost_used_kw
              
-
-
-def calculate_break_even_cost_for_lr(lr_small, large_lr_min, large_lr_max, ref_large_reactor_cost_per_kw, num_large_reactors,  num_small_reactors, min_cost_small, max_cost_small, num_cost):
+def calculate_break_even_cost_for_lr(lr_small, large_lr_min, large_lr_max, ref_large_reactor_cost_per_kw, num_large_reactors,\
+    num_small_reactors, min_cost_small, max_cost_small, num_cost):
     
     large_reactor_cost_hi = calculate_final_cost_due_to_learning_rate(ref_large_reactor_cost_per_kw, large_lr_min, num_large_reactors ) # small lr leads to high cost
     large_reactor_cost_lo = calculate_final_cost_due_to_learning_rate(ref_large_reactor_cost_per_kw, large_lr_max, num_large_reactors ) # hi lr leads to small cost
@@ -37,8 +35,6 @@ def calculate_break_even_cost_for_lr(lr_small, large_lr_min, large_lr_max, ref_l
                 break
     
     return min(cost_tipping_point_list), max(cost_tipping_point_list)
-
-
 
 
 def calculate_break_even_cost_for_lr_per_demand(lr_small, large_lr_min, large_lr_max,\
@@ -71,4 +67,3 @@ def calculate_break_even_cost_for_lr_per_demand(lr_small, large_lr_min, large_lr
                 break
     
     return min(cost_tipping_point_list), max(cost_tipping_point_list)
-

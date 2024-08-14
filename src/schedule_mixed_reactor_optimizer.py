@@ -13,7 +13,22 @@ from schedule_similar_reactors import calculate_duty_cycle_weeks_approach
 # When scheduling, we calculate the sum of the powers all reactors each timestep (week). The minimum of this sum is what we try to minimize
 
 def min_tot_P(power_list , initial_delay_list, levelization_period_weeks): # operational_lifetime_delta_list, refueling_operation_delta_list
-   
+    """
+    This function calculates the minimum total power output over a given time period,
+    considering the initial delay, fuel cycle length, refueling duration, and power of each reactor.
+
+    Parameters:
+    power_list (list of float): A list of the power of each reactor.
+    initial_delay_list (list of int): A list of the initial delay (in weeks) for each reactor.
+    levelization_period_weeks (int): The total time period (in weeks) over which the calculation is performed.
+
+    Returns:
+    min_tot_P (float): The minimum total power output over the given time period.
+    tt_list (list of int): A list of time (in weeks) after all the reactors are in service.
+    P_t_list_of_lists (list of list of float): A list of lists, where each inner list represents the power output of each reactor at a specific time.
+    max_initial_delay (int): The maximum initial delay (in weeks) among all the reactors.
+    """
+    
     P_t_list_tot  = []
     tt_list = []
     P_t_list_of_lists = []
@@ -24,10 +39,7 @@ def min_tot_P(power_list , initial_delay_list, levelization_period_weeks): # ope
        
         for i in range (len(power_list)):
             reactor_power = power_list[i]
-            fuel_lifetime_weeks = fuel_cycle_length(reactor_power) 
-            refuel_period_weeks = refueling_duration_estimate(reactor_power)  
-            P_t = calculate_duty_cycle_weeks_approach(int(initial_delay_list[i]), int(fuel_lifetime_weeks), int(refuel_period_weeks),\
-                int(levelization_period_weeks), reactor_power, int(tt))
+            P_t = calculate_duty_cycle_weeks_approach(int(initial_delay_list[i]), int(levelization_period_weeks), reactor_power, int(tt))
             P_t_list.append(P_t)
             
         P_t_list_tot.append(sum(P_t_list))   
@@ -36,12 +48,33 @@ def min_tot_P(power_list , initial_delay_list, levelization_period_weeks): # ope
     return  min_tot_P, tt_list, P_t_list_of_lists, int((max(initial_delay_list)) )
 
 
-
 def initial_population(power_list, sol_per_pop):
+    """
+    This function calculates an initial guess for the population of reactors.
+    It assumes that all reactors have the same category (e.g. SMR) and that they have the same fuel cycle length.
+    If this is not the case, the function will return an error.
+
+    Parameters:
+    - power_list (list): A list of the power levels for each reactor.
+    - sol_per_pop (int): The number of solutions per population.
+
+    Returns:
+    - initial_population (list): A list of initial guesses for the population of reactors.
+    - allow_duplicate (bool): A boolean indicating whether duplicate solutions are allowed.
+    - expected_output (float): The expected output of the optimization process.
+
+    The function first calculates the fuel lifetime-to-refueling ratio for the reactors with the highest and lowest power levels.
+    If this ratio is greater than or equal to the number of reactors, the function assumes that all reactors have the same category and calculates an initial guess for the population based on this assumption.
+    If the ratio is less than the number of reactors, the function assumes that the reactors have different categories and returns an error.
+
+    The function then returns the initial guess for the population, along with a boolean indicating whether duplicate solutions are allowed and the expected output of the optimization process.
+    """
+    
     num_reactors = len(power_list)
 
-    # calculating a good guess foe the initial population
+    # calculating a good guess for the initial population
     # if all of them have the same category (e.g. smr):
+    
     if fuel_cycle_length(max(power_list)) == fuel_cycle_length(min(power_list) ):
         refuel_period  = refueling_duration_estimate(max(power_list))
         fuel_lifetime_to_refueling_ratio = np.floor(fuel_cycle_length(max(power_list))/refuel_period )
@@ -50,7 +83,7 @@ def initial_population(power_list, sol_per_pop):
         if int(fuel_lifetime_to_refueling_ratio)   >= num_reactors:
             the_max_delay = (num_reactors  - 1)* refuel_period
             num_intervals = int(np.ceil(the_max_delay/refuel_period)) +1
-            initial_population_init = np.linspace(0, the_max_delay, num_intervals )
+            initial_population_init = np.linspace(0, the_max_delay, num_intervals ).round().astype(int)
             initial_population_0 = initial_population_init
             allow_duplicate = False
             expected_output = sum(power_list) - max(power_list)
@@ -58,7 +91,7 @@ def initial_population(power_list, sol_per_pop):
         elif int(fuel_lifetime_to_refueling_ratio)  <  num_reactors:   
             the_max_delay = fuel_cycle_length(max(power_list) ) 
             num_intervals = int(np.ceil(the_max_delay/refuel_period)) +1
-            initial_population_init = np.linspace(0, the_max_delay, num_intervals )
+            initial_population_init = np.linspace(0, the_max_delay, num_intervals ).round().astype(int)
             initial_population_0 = (np.hstack([initial_population_init]* int(np.ceil(num_reactors/len(initial_population_init))     )))[:num_reactors]
             allow_duplicate = True
             expected_output = sum(power_list) - (max(power_list)) * int(np.ceil(num_reactors/fuel_lifetime_to_refueling_ratio))
@@ -85,9 +118,9 @@ def initial_population(power_list, sol_per_pop):
 
 
 def on_gen(ga_instance):
-    pass
-    # print("Generation : ", ga_instance.generations_completed,  ga_instance.best_solution()[0], ga_instance.best_solution()[1])
-    # print(ga_instance.generations_completed, ga_instance.population)
+    # pass
+    print("Schedule Generation : ", ga_instance.generations_completed,  ga_instance.best_solution()[0], ga_instance.best_solution()[1])
+    print(ga_instance.generations_completed, ga_instance.population)
     
 
 def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the power list here includes all the values of power (with repetition)
@@ -97,16 +130,14 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
     # GA params
     sol_per_pop = int(2*len(power_list))   
     
-    
-
     num_generations = 300
-    num_parents_mating =  2
+    num_parents_mating =  int(sol_per_pop/2)
     num_genes = len(power_list)
-    init_range_low = 0
-    init_range_high = 2
+    # init_range_low = 0
+    # init_range_high = 2
 
     parent_selection_type = "rank"
-    keep_parents =  2
+    keep_parents = int(sol_per_pop/2)
     gene_type= int
     crossover_type = "single_point"
 
@@ -125,8 +156,9 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
         output = (min_tot_P(power_list , solution, levelization_period_weeks))[0]
 
         fitness = fitness_eq(expected_out - output)
-        if max(solution)>(365*4/7): # no delays after 4 years (I convert it to weeks because the timesteps are in weeks)
-            fitness = -10000
+        
+        if max(solution)>(365*5/7): # no delays after 4 years (I convert it to weeks because the timesteps are in weeks)
+            fitness = -1 # reduced it from - 10000 to -1
 
         return fitness
     
@@ -138,21 +170,19 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
                        fitness_func= fitness_func,
                        sol_per_pop=sol_per_pop,
                        num_genes=num_genes,
-                       init_range_low=init_range_low,
-                       init_range_high=init_range_high,
+                       
                        parent_selection_type=parent_selection_type,
                        keep_parents=keep_parents,
                        crossover_type=crossover_type,
                        mutation_percent_genes= mutation_percent_genes,
                        
                        mutation_type=mutation_type,
-                       stop_criteria= [fitness_to_reach , "saturate_20"], #  stopping criteria
+                       stop_criteria= [fitness_to_reach , "saturate_5"], #  stopping criteria
                        on_generation= on_gen,
                         fitness_batch_size=1,
                         keep_elitism = int(sol_per_pop/5),
-                        crossover_probability = 0.7,
+                        
                         gene_type = gene_type,
-                    
                        initial_population = initial_pop,
                        allow_duplicate_genes=allow_dup )
       
@@ -160,7 +190,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
     
     ga_instance.run()
     end_time = time.time() 
-    # print(f"Number of generations passed is {ga_instance.generations_completed}")
+    print(f"Nu of Gs passed is {ga_instance.generations_completed}")
     
     # ga_instance.plot_fitness()
     
@@ -168,9 +198,9 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
     sol, sol_fitness, _ = ga_instance.best_solution()
     
     
-    print("\n\n\n The schedule optimizatation starts")
-    print("\n The program runtime is " , np.round( (end_time -start_time), 0), " sec", " & The Number of Generations Passed is ",\
-        ga_instance.generations_completed, "...... Fitness value of the best solution = {solution_fitness}".format(solution_fitness=sol_fitness)) 
+    # print("\n\n\n The schedule optimizatation starts")
+    # print("\n schedule optimization takes " , np.round( (end_time -start_time), 0), " sec", " & The Number of Generations Passed is ",\
+    #     ga_instance.generations_completed, "...... Fitness value of the best solution = {solution_fitness}".format(solution_fitness=sol_fitness)) 
 
     # print("Parameters of the best solution : {solution}".format(solution=solution))
     # print("Fitness value of the best solution = {solution_fitness}".format(solution_fitness=sol_fitness))
@@ -184,6 +214,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
     prediction_discrepancy = np.abs(expected_out - prediction)      
     print(f"\n The difference between prediction and desired output is {prediction_discrepancy} : {expected_out} vs. {prediction} Total MW")
     print(f"\nIt takes {np.round(schedule_rampup_duration*7/365, 2)} years to startup up all the reactors")
+    
     print("\n\n\n The schedule optimizatation ends")
     return schedule_times, schedule_powers, schedule_rampup_duration, sol
 
@@ -196,8 +227,10 @@ def capacity_factor_weeks_approach_mix_reactors(long_list_of_powers,levelization
     powers =  schedule[1]
     
     #OM Cost. Since it is per Mwh, I multiply it by the 168 hours per week (because the time is in weeks)
-    OM_costs = [[168*element* OM_cost_per_MWh(element) for element in row] for row in powers] # Multiply the cost ($/MWh) by the power (MW) by the number of hours in each timestep(week): 168 hours
-   
+    # Cost ($/week)
+    OM_costs = [[168*element* OM_cost_per_MWh(element, long_list_of_powers.count(element)) for element in row] for row in powers] # Multiply the cost ($/MWh) by the power (MW) by the number of hours in each timestep(week): 168 hours
+    
+    
     P_list_tot_array = (np.vstack(powers))
     OM_costs_array = (np.vstack(OM_costs))
    
@@ -206,11 +239,10 @@ def capacity_factor_weeks_approach_mix_reactors(long_list_of_powers,levelization
     for i in range(len(P_list_tot_array_sum )):
         P_list_tot_array_sum[i] = sum(P_list_tot_array[i])
         
-    # sum costs of several reactors per day    
+    # sum costs of several reactors per week    
     OM_cost_list_tot_array_sum = [0]* len(OM_costs_array) 
     for i in range(len(OM_cost_list_tot_array_sum)):
         OM_cost_list_tot_array_sum[i] = sum(OM_costs_array[i] )
-    
     
     
     #extract time and power after excluding the initial ramp up period
@@ -301,7 +333,7 @@ def capacity_factor_weeks_approach_mix_reactors(long_list_of_powers,levelization
             yearly_OM_cost  [year] += excess
         else:
             # If the year is not in the dictionary, initialize it with the production value
-            yearly_OM_cost  [year] =excess
+            yearly_OM_cost  [year] = excess
            
             
     MW_hours_generated_per_year_total = list(tot_yearly_production .values())
@@ -314,4 +346,7 @@ def capacity_factor_weeks_approach_mix_reactors(long_list_of_powers,levelization
                  
 
 # example    
-# example  = ((  (capacity_factor_weeks_approach_mix_reactors( [500, 200, 100, 50, 500, 1000, 1,100, 1,1,1,1,1,1,1,1], 52*30, 900))[6]))
+# example  = ((  (capacity_factor_weeks_approach_mix_reactors( [500, 200, 200, 500], 52*30, 900))[6]))
+
+# P_list = [10]*4
+# example  = ((  (capacity_factor_weeks_approach_mix_reactors( P_list, int(52*40/7), 1500))[6]))

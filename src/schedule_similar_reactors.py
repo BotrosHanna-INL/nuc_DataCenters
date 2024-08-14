@@ -28,8 +28,9 @@ def reactor_on_durations_weeks_approach(delay_in_weeks, fuel_lifetime_weeks, ref
 
 # calculate the power of the reactor at each timestep (depending on whether the reactor is running or down)
 
-def calculate_duty_cycle_weeks_approach(inital_delay_in_weeks, fuel_lifetime_weeks, refuel_period_weeks, levelization_period_weeks, power, t_weeks):
-    # calculating the power at each timestep (week). The power is either full power or zero
+def calculate_duty_cycle_weeks_approach(inital_delay_in_weeks, levelization_period_weeks, power, t_weeks):
+    fuel_lifetime_weeks = fuel_cycle_length(power)
+    refuel_period_weeks = refueling_duration_estimate(power)
     
     fuel_cycle_durations_weeks = reactor_on_durations_weeks_approach(inital_delay_in_weeks, fuel_lifetime_weeks,  refuel_period_weeks, levelization_period_weeks)
     fuel_cycle_start_weeks = fuel_cycle_durations_weeks[0]
@@ -56,7 +57,10 @@ def calculate_duty_cycle_weeks_approach(inital_delay_in_weeks, fuel_lifetime_wee
 
 # calculate the power of muliple reactors at each timestep (depending on whether the reactor is running or down)
 
-def calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, num_reactors, power, levelization_period_weeks):
+def calculate_schedule_multiple_reactors_weeks_approach(num_reactors, power, levelization_period_weeks):
+    
+    fuel_lifetime_weeks = fuel_cycle_length(power)
+    refueling_period_weeks = refueling_duration_estimate(power)
     
     if num_reactors <= (fuel_lifetime_weeks/refueling_period_weeks):
         initial_delay_list =list(refueling_period_weeks*np.linspace(0,  num_reactors-1, num_reactors) )
@@ -70,7 +74,7 @@ def calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, ref
 
             for time in range(1, levelization_period_weeks+1): # we start with week#1 not week #0
             
-                P = calculate_duty_cycle_weeks_approach( int( delay), fuel_lifetime_weeks, refueling_period_weeks, levelization_period_weeks, power, time)
+                P = calculate_duty_cycle_weeks_approach( int( delay), levelization_period_weeks, power, time)
                 t_list.append(time)
                 P_list.append(P)
 
@@ -110,7 +114,7 @@ def calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, ref
 
             for time in range(1, levelization_period_weeks+1):  #we start with week#1 not week #0
             
-                P = calculate_duty_cycle_weeks_approach( int( delay), fuel_lifetime_weeks, refueling_period_weeks, levelization_period_weeks, power, time)
+                P = calculate_duty_cycle_weeks_approach( int( delay), levelization_period_weeks, power, time)
             
                 t_list.append(time)
                 P_list.append(P)
@@ -124,10 +128,9 @@ def calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, ref
 
 
 # calculate the capacity factor of muliple reactors at each timestep (depending on whether the reactor is running or down)
-def capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, num_reactors, power1,levelization_period_weeks, demand):
-    
-
-    schedule = calculate_schedule_multiple_reactors_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, num_reactors, power1, levelization_period_weeks) 
+def capacity_factor_weeks_approach(num_reactors, power1,levelization_period_weeks, demand):
+        
+    schedule = calculate_schedule_multiple_reactors_weeks_approach(num_reactors, power1, levelization_period_weeks) 
 
     times =  schedule[0] # This is the time in weeks
     powers =  schedule[1]
@@ -223,16 +226,18 @@ def capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, 
     MW_hours_generated_per_year_total = list(tot_yearly_production .values())
     MW_hours_generated_per_year_per_demand = list(yearly_production_per_demand.values())
     MW_hours_excess_per_year = list(yearly_excess_energy.values())
-    return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor, MW_hours_generated_per_year_total, MW_hours_generated_per_year_per_demand ,MW_hours_excess_per_year
+    return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor,\
+        MW_hours_generated_per_year_total, MW_hours_generated_per_year_per_demand, MW_hours_excess_per_year
   
   
-
-
 # calculate the number of reactors needed to reach a specific capacity factor of muliple reactors at each timestep (depending on whether the reactor is running or down)
                  
-def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_factor_criteria, min_capacity_factor_criteria, fuel_lifetime_weeks, refueling_period_weeks, power, levelization_period_weeks, demand_0):
+def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_factor_criteria, min_capacity_factor_criteria,\
+     power, levelization_period_weeks, demand_0):
+    fuel_lifetime_weeks = fuel_cycle_length(power)
+    refueling_period_weeks = refueling_duration_estimate(power)
 
-    refueling_to_fuel_cycle_ratio =  refueling_duration_estimate(power)/fuel_cycle_length(power)
+    refueling_to_fuel_cycle_ratio =  refueling_period_weeks/fuel_lifetime_weeks
     maximum_criteria = max(overall_capacity_factor_criteria, min_capacity_factor_criteria)
     approximate_capacity_factor = 1 -refueling_to_fuel_cycle_ratio
     
@@ -241,7 +246,7 @@ def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_fac
 
     for  num_reactors in np.linspace( num_reactors_0 , 5*num_reactors_0, 4*num_reactors_0+1):
         
-        capacity_factor_results = (capacity_factor_weeks_approach(fuel_lifetime_weeks, refueling_period_weeks, int(num_reactors), power, levelization_period_weeks, demand_0 ))
+        capacity_factor_results = (capacity_factor_weeks_approach(int(num_reactors), power, levelization_period_weeks, demand_0 ))
 
         # times_array_excludingRampUp = capacity_factor_results[0]
         capacity_factor_min =    min (capacity_factor_results[1])
@@ -254,21 +259,7 @@ def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_fac
     return num_reactors_final 
 # import time
 # start =time.time()
-# print(num_reactors_needed_for_capacity_factor_weeks_apprioach(0, 1, int(4*365/7), 4, 1 ,int (40*365/7), 1000))          
-# end =time.time(
+# print(num_reactors_needed_for_capacity_factor_weeks_apprioach(0, 1, 1 ,int (40*365/7), 1000))          
+# end =time.time()
 # duration = (end -start)
 # print(f"{int(duration)} seconds")
-# for the cF = 1, time is 111 sec
-# a = 1 -  refueling_duration_estimate(5)/fuel_cycle_length(5)
-# print(a)
-
-
-# aa = capacity_factor_weeks_approach(int(4*365/7), 4, 1010, 1, int(np.floor(40*365/7)),1000)
-# print(min(aa[1]))
-# print(aa[2])
-# 99: 1010
-## 999: 1019
-# 1 :  1020
-
-# if min
-# 0.99: 1010

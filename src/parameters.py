@@ -1,143 +1,281 @@
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
+import warnings
+warnings.filterwarnings("ignore")
 
 
 # Ref parameters based on the GAIN's Database Spreadsheet: https://gain.inl.gov/content/uploads/4/2024/06/INL-RPT-24-77048-R1.xlsx
 power_large_ref = 1000 # MWe
 power_SMR_ref = 200 # MWe # the average power of the SMR in the sheet is 200 
-power_micro_ref = 5 # MW 
+power_micro_ref = 5 # MW # The microreactor power: https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_66425.pdf
 
 # baseline learning rate from https://www.osti.gov/biblio/2371533
-LR_large = 0.08
-LR_small = 0.095 # (for SMR and microreactors)
+LR_large_reactor = 0.08
+LR_SMR = 0.095 # (for SMR)
 LR_std = 0.03 #(based on the data in the spreadsheet : https://gain.inl.gov/content/uploads/4/2024/06/INL-RPT-24-77048-R1.xlsx )
 
-# Inflation Multiplier from 2019 to 2022: https://fred.stlouisfed.org/series/GDPDEF#0
-inf_mult_19_22 = 117.965/104.004
 
 
+
+# Learning rate for microreactors
+lr_factory = 0.24285492 # https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
+Lr_site = 0.08 # assumption (similar to large reactors)
+
+factory_contribution_to_cost = 0.4  #https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779 # This is build on 5 MW reactor
+site_contribution_to_cost = 1 - factory_contribution_to_cost  
+Num_of_units = 100  #https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
+
+
+LR_tot_micro = 1 - np.exp((np.log(factory_contribution_to_cost*( (1-lr_factory)**np.log2(Num_of_units)) +\
+    site_contribution_to_cost*((1-Lr_site)**np.log2(Num_of_units)))) / np.log2(Num_of_units))
+
+def func_LR(x, a, b):  # Curve fitting for LR = f (power)
+    return a*(x**b)
+
+xData_LR = [power_large_ref,  power_SMR_ref, power_micro_ref]
+yData_LR = [LR_large_reactor , LR_SMR, LR_tot_micro]
+popt_lr_, _ = curve_fit(func_LR, xData_LR   ,yData_LR)
+
+def LR_for_power(P):
+    return popt_lr_[0] *(P**popt_lr_[1])
 
 #### OCC Cost ######
 # ref: https://www.osti.gov/biblio/2371533
 
-OCC_large_conservative = 7750 # USD/kW
+OCC_large_conservative_BOAK = 7750 # USD/kW
+OCC_large_moderate_BOAK = 5750 # USD/kW
+OCC_large_advanced_BOAK = 5250 # USD/kW
 
-# Since the cost if from the Gain report is 2nd of a kind cost, I convert it to first of a kind cost (assuming learning rate)
-
-OCC_large_conservative_FOAK = OCC_large_conservative / (    (1 - LR_large)**(np.log2(2))   )
-
-# OCC_large_moderate = 5750 # 
- 
 
 # SMR
-OCC_SMR_conservative = 10000 # USD/kW
+OCC_SMR_conservative_BOAK = 10000 # USD/kW
+OCC_SMR_moderate_BOAK = 8000 # USD/kW
+OCC_SMR_advanced_BOAK = 5500 # USD/kW
+
 # Since the cost if from the Gain report is 2nd of a kind cost, I convert it to first of a kind cost (assuming learning rate)
-
-OCC_SMR_conservative_FOAK = OCC_SMR_conservative / (    (1 - LR_small)**(np.log2(2))   )
-# OCC_SMR_moderate = 7750 
-
-
+# OCC_SMR_conservative_FOAK = OCC_SMR_conservative / (    (1 - LR_SMR )**(np.log2(2))   )
 
 #Microreactors\n# from the lit review : https://www.osti.gov/biblio/1986466: Table 17 (scaled data) only OCC. The data that had the financing cost were excluded
 # # all of them are multuplied by (inflation multuplier from 2019 to 2022) 
 
-MR_cost_1  = 10000 * inf_mult_19_22
-MR_cost_2 = + 15000 *inf_mult_19_22
-MR_cost_3 =  20000 *inf_mult_19_22
-MR_cost_4 = 3996 * inf_mult_19_22
-MR_cost_5 = 8276  * inf_mult_19_22
-MR_cost_6 = 14973 * inf_mult_19_22
-MR_cost_average =np.mean ([MR_cost_1,MR_cost_2, MR_cost_3, MR_cost_4,MR_cost_5, MR_cost_6 ])
-MR_cost_std = np.std ([MR_cost_1,MR_cost_2, MR_cost_3, MR_cost_4,MR_cost_5, MR_cost_6 ])
+# # Inflation Multiplier from 2019 to 2022: https://fred.stlouisfed.org/series/GDPDEF#0
+inf_mult_19_22 = 117.965/104.004 # you need to multiply by the multiper for inflation first: inf_mult_19_22 
 
-OCC_micro_conservative = MR_cost_average + MR_cost_std # USD/kW
-
-# These are the original data (no manipulation) so I will use them as the FOAK costs
-OCC_mico_conservative_FOAK  = OCC_micro_conservative 
-# OCC_micro_moderate = MR_cost_average
-
+OCC_micro_conservative_BOAK = 17000*inf_mult_19_22  # USD/kW
+OCC_micro_moderate_BOAK = 13000*inf_mult_19_22  # USD/kW
+OCC_micro_advanced_BOAK = 8000*inf_mult_19_22  # USD/kW
 
 
 # now lets do curve fitting\n
-def large_reactor_func(x, a, b):  
+def boak_occ_func(x, a, b):  
     return a*(x**b)
 
-xdata1_OCC = [ power_large_ref,  power_SMR_ref,power_micro_ref ]
-ydata1_OCC = [ OCC_large_conservative_FOAK,  OCC_SMR_conservative_FOAK, OCC_mico_conservative_FOAK  ]
-popt1, p_cov1 = curve_fit(large_reactor_func, xdata1_OCC , ydata1_OCC)
+xdata1_OCC = [ power_large_ref, power_large_ref,power_large_ref,\
+    power_SMR_ref,power_SMR_ref,power_SMR_ref,
+    power_micro_ref,power_micro_ref,power_micro_ref  ]
 
-def occ_for_power(P):
-    return popt1[0] *(P**popt1[1]) # $/kw
+ydata1_OCC = [ OCC_large_conservative_BOAK , OCC_large_moderate_BOAK, OCC_large_advanced_BOAK,\
+    OCC_SMR_conservative_BOAK, OCC_SMR_moderate_BOAK,  OCC_SMR_advanced_BOAK ,\
+        OCC_micro_conservative_BOAK, OCC_micro_moderate_BOAK, OCC_micro_advanced_BOAK]
+
+popt_OCC, _ = curve_fit(boak_occ_func, xdata1_OCC , ydata1_OCC)
 
 
-# print(occ_for_power(7))
+
+def occ_for_power_BOAK(P):
+    # A function that calculates the BOAK OCC
+    return popt_OCC[0] *(P**popt_OCC[1]) # $/kw
 
 
+def occ_for_power_FOAK(P):
+    # A function that calculates the FOAK OCC from the BOAK
+    lr = LR_for_power(P)
+    BOAK_cost = occ_for_power_BOAK(P)
+    FOAK_cost = BOAK_cost / (    (1 - lr )**(np.log2(2))   )
+    return FOAK_cost 
+
+
+def occ_for_power_FOAK_thermal(P_th):
+    # A function that calculates the FOAK OCC from the BOAK
+
+    # assuming that the efficiency is 35%
+    # electric power is 0.35 * thermal power
+    P = 0.35*P_th
+    lr = LR_for_power(P)
+    BOAK_cost = occ_for_power_BOAK(P)
+    FOAK_cost = BOAK_cost / (    (1 - lr )**(np.log2(2))   )
+
+    # Accoding to the https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_107010.pdf (sectiomn 8.3.1), the OCC should be reduced for heat application
+    # The multiplier is 0.795
+    
+    return 0.795*FOAK_cost 
+
+
+# pp_list = [1,5,10, 20, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+# k_list1 = []
+# k_list2 = []
+# for pp in pp_list:
+#     k_list1.append( occ_for_power_FOAK(pp))
+#     k_list2.append( occ_for_power_BOAK(pp))
+  
+# import matplotlib.pyplot as plt
+# plt.scatter(xdata1_OCC ,ydata1_OCC )
+# plt.plot( pp_list, k_list1)
+# plt.plot( pp_list, k_list2)
+# plt.show()
 ##### O & M COST   #####
-
 # One of the shortcomings here is that the O&M cost is independent of the fuel lifetime
-#Large reactor O&M Costs 
-OM_large_hi = 39.8 # Total O&M ($/MWh)
-# OM_large_medium = 34.6 # Total O&M ($/MWh)
 
 
-# SMR
-OM_SMR_hi = 41.4  # Total O&M ($/MWh)     
-# OM_SMR_medium = 30.2 # Total O&M ($/MWh)
 
 
-#Microreactors
-# https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_66425.pdf: TABLE 18
-# # multuplied by (inflation multuplier from 2019 to 2022) 
+# ref: https://www.osti.gov/biblio/2371533
 
-OM_Micro_Avg = inf_mult_19_22 *np.mean([69, 103, 137, 125, 136, 59]) # $/MWh
-OM_Micro_std = inf_mult_19_22 *np.std([69, 103, 137, 125, 136, 59]) # $/MWh
-OM_Mirco_medium = OM_Micro_Avg # $/MWh
+OM_large_conservative = 40 # USD/MWh
+OM_large_moderate = 35 # USD/MWh
+OM_large_advanced = 26 # USD/MWh
 
-OM_Mirco_hi = OM_Micro_Avg+OM_Micro_std # $/MWh
+OM_SMR_conservative = 41# USD/MWh
+OM_SMR_moderate = 30 # USD/MWh
+OM_SMR_advanced = 27 # USD/MWh
 
+# REf: https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_66425.pdf
+# inflation  multiplier is appled
+OM_micro_conservative = 135*inf_mult_19_22  # USD/MWh
+OM_micro_moderate = 100*inf_mult_19_22  # USD/MWh
+OM_micro_advanced = 70*inf_mult_19_22  # USD/MWh
 
 
 def func_OM(x, a, b):  # Curve fitting for O&M cost = f (power)
     return a*(x**b)
 
-xdata_OM = [ power_large_ref,  power_SMR_ref, power_micro_ref ]
-ydata_OM = [ OM_large_hi,  OM_SMR_hi, OM_Mirco_hi  ]
-popt_OM, p_cov_OM = curve_fit(func_OM, xdata_OM  , ydata_OM)
 
-def OM_cost_per_MWh(power):
+xdata_OM = [ power_large_ref, power_large_ref,power_large_ref,\
+    power_SMR_ref,power_SMR_ref,power_SMR_ref,
+    power_micro_ref,power_micro_ref,power_micro_ref  ]
+
+ydata_OM = [ OM_large_conservative , OM_large_moderate, OM_large_advanced,\
+    OM_SMR_conservative, OM_SMR_moderate,  OM_SMR_advanced ,\
+        OM_micro_conservative, OM_micro_moderate, OM_micro_advanced]
+
+popt_OM, _ = curve_fit(boak_occ_func, xdata1_OCC , ydata1_OCC)
+
+
+popt_OM, _ = curve_fit(func_OM, xdata_OM  , ydata_OM) # This is O&M cost fitting for FOAK reactor
+
+
+def OM_for_power_one_unit(P):
+    # A function that calculates O&M cost
+    return popt_OM[0] *(P**popt_OM[1]) # $/kw
+
+# plt.scatter(xdata_OM,ydata_OM )
+# plt.show()
+
+
+# The cost reduction due to building multiple units
+OM_data_mult_unit = pd.read_excel('src/multi_unit.xlsx', sheet_name='Sheet3')
+# X is the number of units,  Y is the cost reduction multiplier
+x1_OM = OM_data_mult_unit['DOE 1987 - Num Units'].tolist()
+x2_OM = OM_data_mult_unit['# of Units: NEI'].tolist()
+x3_OM = OM_data_mult_unit['number of units:ICONE 2008'].tolist()
+x_mult_unit = x1_OM + x2_OM + x3_OM
+
+y1_OM = OM_data_mult_unit['BECHTEL 1987'].tolist()
+y2_OM = OM_data_mult_unit['NEI 2023'].tolist()
+y3_OM = OM_data_mult_unit['Carelli 2008'].tolist()
+y_mult_unit = y1_OM + y2_OM + y3_OM
+
+# remove nan values
+x_mult_unit_clean = [x for x in x_mult_unit if str(x) != 'nan']
+y_mult_unit_clean = [x for x in y_mult_unit if str(x) != 'nan']
+
+
+
+
+"""
+the cumulative cost multiplier is assumed to follow https://www.osti.gov/servlets/purl/6511284 (table 4.24): "case 3"
+assumption u have a cost fraction that does not scale (a) and the remaning cost (1-a) increasese linearly with the number of units
+total cost = a + (1-a) * number of units
+cost per unit = a /number of units   + (1-a)
+"""
+def OM_multiple(x, a):  # Curve fitting for O&M cost cost reduction factor = f (number of units)
+    return (a/x) + 1-a
+
+popt_OM_multiple, _ = curve_fit(OM_multiple, x_mult_unit_clean  ,y_mult_unit_clean) 
+
+
+
+def OM_cost_per_MWh(power, number_of_units):
     if power == 0:
         return 0
     else:
-        return  popt_OM[0] *(power**popt_OM[1]) # O&M cost: $/Mwh 
-    
-    
- 
-##### Construction Duration #####
+        OM_cost_one_unit = OM_for_power_one_unit(power)
+        OM_cost_reduction_factor = (popt_OM_multiple[0]/number_of_units) + 1-popt_OM_multiple[0]
+        OM_cost_multiple_units = OM_cost_one_unit * OM_cost_reduction_factor
+        return  OM_cost_multiple_units # O&M cost for all the units ($/MWh)
 
+def OM_cost_per_MWh_thermal(power_thermal, number_of_units):
+    
+    # assuming that the power (electric) = 0.35 * thermal power
+    power = 0.35*power_thermal
+    if power == 0:
+        return 0
+    else:
+        OM_cost_one_unit = OM_for_power_one_unit(power)
+        OM_cost_reduction_factor = (popt_OM_multiple[0]/number_of_units) + 1-popt_OM_multiple[0]
+        OM_cost_multiple_units = OM_cost_one_unit * OM_cost_reduction_factor
+        
+        # According to https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_107010.pdf (sec 8.3.1), the cost is 0.966 less
+        return   0.966*OM_cost_multiple_units # O&M cost for all the units ($/MWh) # note that this is the cost per MWh electric
+
+##### Construction Duration #####
 
 # Data from: https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_107010.pdf
 
 cons_duration_large_conservative = 125 #(months)
+cons_duration_large_moderate     = 82 #(months)
+cons_duration_large_advanced     = 60 #(months)
+
 cons_duration_SMR_conservative = 71 #(months)
-cons_duration_micro_conservative = 36 #(months) # I assumed this!
+cons_duration_SMR_moderate = 55 #(months)
+cons_duration_SMR__advanced = 43 #(months)
+
+
+# ref: https://www.nei.org/CorporateSite/media/filefolder/resources/reports-and-briefs/Road-map-micro-reactors-department-defense-201810.pdf
+# check page 9: "Thus, it is estimated that on-site construction for the first microreactor can be performed in 18 months to 36 months, with a nominal target of 24 months."
+cons_duration_micro_conservative = 36 #(months) 
+cons_duration_micro_moderate = 24 #(months) 
+cons_duration_micro_advanced = 18  #(months) 
 
 # Curve fitting
 
 def func_construction(x, a, b):  # Curve fitting for construction duration = f( power)
     return a*(x**b)
-xData_duration = [ power_large_ref,  power_SMR_ref, power_micro_ref ]
-yData_duration = [cons_duration_large_conservative , cons_duration_SMR_conservative , cons_duration_micro_conservative ]
-popt_, p_cov_ = curve_fit(func_construction, xData_duration   ,yData_duration)
+xData_duration = [ power_large_ref, power_large_ref, power_large_ref,  power_SMR_ref, power_SMR_ref, power_SMR_ref, power_micro_ref,  power_micro_ref,  power_micro_ref ]
+yData_duration = [cons_duration_large_conservative ,cons_duration_large_moderate ,cons_duration_large_advanced ,\
+    cons_duration_SMR_conservative , cons_duration_SMR_moderate , cons_duration_SMR__advanced,\
+        cons_duration_micro_conservative, cons_duration_micro_moderate , cons_duration_micro_advanced ]
+
+popt_construction, _ = curve_fit(func_construction, xData_duration   ,yData_duration)
 
 
-def construction_duration_for_power(P):
+def construction_duration_for_power_BOAK(P):
     if P == 0:
         return 0
     else:
-        return popt_[0] *(P**popt_[1])
-        
-        
+        return popt_construction[0] *(P**popt_construction[1])
+
+
+
+def  construction_duration_for_power_FOAK(P):
+    # A function that calculates the FOAK construction duration from the BOAK
+    lr = LR_for_power(P)
+    BOAK_duration = construction_duration_for_power_BOAK(P)
+    FOAK_duration = BOAK_duration / (    (1 - lr )**(np.log2(2))   )
+    return FOAK_duration
+
+
 
  
 ##### Fuel Cycle: Fuel cycle length   && refueling duration
@@ -147,21 +285,32 @@ def refueling_duration_estimate(reactor_power):
     if reactor_power > 0:
         return 4
 
+"""
+fuel lifetime: 
+for reactors of capacities larger than or equal to 200, it would be 24 months (2 years) because:
+new large reactors are expected to have 24 cycle length. SMRs such as NuSclae and BWXT have 24 fuel cycle lengh
+We use the microreactor of Radiant as a reference (1MW, 5 year interval) and interpolate between 1 MW to 200 MW to estimate the fuel length 
+"""
+# first step: curve fitting between 1 and 200 MW
+def func_refueling_interval(x, a, b): 
+    return a*(x**b)
 
-# fuel lifetime
+xData_refuel_interval = [ 1, 200 ] # MW 
+yData_refuel_interval = [5, 2] # the refueling intervals 5 years and 2 years 
+popt_refuel_interval, _ = curve_fit(func_refueling_interval, xData_refuel_interval   , yData_refuel_interval)
+
+
+
 def fuel_cycle_length(reactor_power): 
-    # The fuel cycle length is assume to be 2, 3, 4, years for large, SMR, mico reactors respectively
-    
-    if reactor_power > 500:
-        lifetime = int(np.floor(2*365/7)) # weeks (2 years)
+    # if power is smaller than 200, the inerval is 2 years    
+    if reactor_power >= 200 and reactor_power <= 1000:
+        lifetime_weeks = int(np.floor(2*365/7)) # weeks (2 years)
         
-    elif reactor_power<= 500 and reactor_power >50:
-        lifetime = int(np.floor(3*365/7))# weeks (3 years)
-        
-    elif  reactor_power <=50:   
-        lifetime = int(np.floor(4*365/7))# weeks (4 years)
+    elif reactor_power< 200 and reactor_power >= 1:
+        lifetime = popt_refuel_interval[0] *(reactor_power**popt_refuel_interval[1]) # in years
+        lifetime_weeks = int(np.floor(lifetime*365/7)) # in weeks
          
-    return lifetime     # Total cycle length in weeks
+    return lifetime_weeks    # Total cycle length in weeks
 
 
 
@@ -176,68 +325,37 @@ def color_of(power):
 
 
 
-
+# to create a list of capacities that are repeated N times.
 def repeat_elements(elements, counts):
     result = []
     for element, count in zip(elements, counts):
         result.extend([element] * count)
     return result
 
-# # Example usage:
-# numbers = [1, 2, 3]
-# repeat_counts = [2, 3, 1]
 
 
 
 
-# Learning rate for mi(croreactors
-lr_factory = 0.24285492 # https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
-Lr_site = 0.08 # assumption
-
-factory_contribution_to_cost = 0.4 #https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
-site_contribution_to_cost = 1 -factory_contribution_to_cost  
-Num_of_units = 100 #https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
-
-
-LR_tot_micro = 1 - np.exp((np.log(factory_contribution_to_cost*( (1-lr_factory)**np.log2(Num_of_units)) +\
-    site_contribution_to_cost*((1-Lr_site)**np.log2(Num_of_units)))) / np.log2(Num_of_units))
-
-print(LR_tot_micro)
-
-def func_LR(x, a, b):  # Curve fitting for LR = f (power)
-    return a*(x**b)
-
-xData_LR = [power_large_ref,  power_SMR_ref, 5] # 0.02 from the MARVEL paper: https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
-yData_LR = [LR_large, LR_small, LR_tot_micro]
-popt_lr_, p_cov_lr_ = curve_fit(func_LR, xData_LR   ,yData_LR)
-
-def LR_for_power(P):
-    if P == 0:
-        return 0
-    else:
-        return popt_lr_[0] *(P**popt_lr_[1])
 
 
 
-# data for the refueling interval: https://world-nuclear.org/information-library/nuclear-fuel-cycle/nuclear-power-reactors/small-nuclear-power-reactors
-# 1: AHTR/FHR: interval avg = (2.5 + 4)/2 = 3.25 years (power = 50MWe) or up to 4 years
-# 
-# # https://world-nuclear.org/information-library/nuclear-fuel-cycle/nuclear-power-reactors/small-nuclear-power-reactors
-#KLT-40s P = 35 MWe, 
+# # Curve fitting for the O&M cost change with the number of units
+# def func_OM_reduction(x, a):  # Curve fitting for LR = f (power)
+#     return (a/x) +1-a
+
+# # Source
+# # https://www.osti.gov/biblio/713993: Table2
+# x_OM = [1, 2, 4, 8] # number of units
+# y_OM = [1, 0.729032258, 0.606451613, 0.574193548] # This is the O&M cost per unit
+# popt_om1_, p_cov_lr_ = curve_fit(func_OM_reduction, x_OM   , y_OM)
 
 
-# Curve fitting for the O&MC cost change with the number of units
-def func_OM_reduction(x, a):  # Curve fitting for LR = f (power)
-    return (a/x) +1-a
 
-# Source
-# https://www.osti.gov/biblio/713993: Table2
-x_OM = [1, 2, 4, 8] # number of units
-y_OM = [1, 0.729032258, 0.606451613, 0.574193548] # This is the O&M cost per unit
-popt_om1_, p_cov_lr_ = curve_fit(func_OM_reduction, x_OM   , y_OM)
+# # we get data from the OCED NEA 2016 data: https://www.oecd-nea.org/upload/docs/application/pdf/2019-12/7213-smrs.pdf
+# OM_data = pd.read_excel('src/O&M_OCED_NEA_2016.xlsx') 
+# Power_OM = OM_data['Power'].tolist()
+# OM_cost_2016 = OM_data['O&M cost (total): 2016'].tolist()
 
-print("hh",popt_om1_)
-# def OM_cost_reduction_factor(number_of_units):
-
-#     return (number_of_units/popt_om1_[0]) + 1-number_of_units/popt_om1_[0] 
-# print(OM_cost_reduction_factor(10))
+# multiply the cost by inflation multiplier (adjust from 2016 to 2022)
+# inf_mult_16_22 = 117.965/98.238
+# OM_cost_2022 = inf_mult_16_22 * np.array(OM_cost_2016)
