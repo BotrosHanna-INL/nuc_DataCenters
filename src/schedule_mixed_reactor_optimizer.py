@@ -198,13 +198,6 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
     sol, sol_fitness, _ = ga_instance.best_solution()
     
     
-    # print("\n\n\n The schedule optimizatation starts")
-    # print("\n schedule optimization takes " , np.round( (end_time -start_time), 0), " sec", " & The Number of Generations Passed is ",\
-    #     ga_instance.generations_completed, "...... Fitness value of the best solution = {solution_fitness}".format(solution_fitness=sol_fitness)) 
-
-    # print("Parameters of the best solution : {solution}".format(solution=solution))
-    # print("Fitness value of the best solution = {solution_fitness}".format(solution_fitness=sol_fitness))
-    
     prediction = (min_tot_P(power_list , sol, levelization_period_weeks))[0]
     schedule_times = (min_tot_P(power_list , sol, levelization_period_weeks))[1]
     schedule_powers = (min_tot_P(power_list , sol, levelization_period_weeks))[2]
@@ -344,9 +337,3 @@ def capacity_factor_weeks_approach_mix_reactors(long_list_of_powers,levelization
     return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor, MW_hours_generated_per_year_total,\
         MW_hours_generated_per_year_per_demand , MW_hours_excess_per_year, yearly_OM_cost_list
                  
-
-# example    
-# example  = ((  (capacity_factor_weeks_approach_mix_reactors( [500, 200, 200, 500], 52*30, 900))[6]))
-
-# P_list = [10]*4
-# example  = ((  (capacity_factor_weeks_approach_mix_reactors( P_list, int(52*40/7), 1500))[6]))

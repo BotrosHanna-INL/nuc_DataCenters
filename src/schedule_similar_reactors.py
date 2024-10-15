@@ -257,9 +257,3 @@ def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_fac
                 break
 
     return num_reactors_final 
-# import time
-# start =time.time()
-# print(num_reactors_needed_for_capacity_factor_weeks_apprioach(0, 1, 1 ,int (40*365/7), 1000))          
-# end =time.time()
-# duration = (end -start)
-# print(f"{int(duration)} seconds")

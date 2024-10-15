@@ -16,8 +16,6 @@ LR_SMR = 0.095 # (for SMR)
 LR_std = 0.03 #(based on the data in the spreadsheet : https://gain.inl.gov/content/uploads/4/2024/06/INL-RPT-24-77048-R1.xlsx )
 
 
-
-
 # Learning rate for microreactors
 lr_factory = 0.24285492 # https://www.tandfonline.com/doi/full/10.1080/00295450.2023.2206779
 Lr_site = 0.08 # assumption (similar to large reactors)
@@ -112,24 +110,6 @@ def occ_for_power_FOAK_thermal(P_th):
     return 0.795*FOAK_cost 
 
 
-# pp_list = [1,5,10, 20, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-# k_list1 = []
-# k_list2 = []
-# for pp in pp_list:
-#     k_list1.append( occ_for_power_FOAK(pp))
-#     k_list2.append( occ_for_power_BOAK(pp))
-  
-# import matplotlib.pyplot as plt
-# plt.scatter(xdata1_OCC ,ydata1_OCC )
-# plt.plot( pp_list, k_list1)
-# plt.plot( pp_list, k_list2)
-# plt.show()
-##### O & M COST   #####
-# One of the shortcomings here is that the O&M cost is independent of the fuel lifetime
-
-
-
-
 # ref: https://www.osti.gov/biblio/2371533
 
 OM_large_conservative = 40 # USD/MWh
@@ -168,9 +148,6 @@ popt_OM, _ = curve_fit(func_OM, xdata_OM  , ydata_OM) # This is O&M cost fitting
 def OM_for_power_one_unit(P):
     # A function that calculates O&M cost
     return popt_OM[0] *(P**popt_OM[1]) # $/kw
-
-# plt.scatter(xdata_OM,ydata_OM )
-# plt.show()
 
 
 # The cost reduction due to building multiple units
@@ -331,31 +308,3 @@ def repeat_elements(elements, counts):
     for element, count in zip(elements, counts):
         result.extend([element] * count)
     return result
-
-
-
-
-
-
-
-
-# # Curve fitting for the O&M cost change with the number of units
-# def func_OM_reduction(x, a):  # Curve fitting for LR = f (power)
-#     return (a/x) +1-a
-
-# # Source
-# # https://www.osti.gov/biblio/713993: Table2
-# x_OM = [1, 2, 4, 8] # number of units
-# y_OM = [1, 0.729032258, 0.606451613, 0.574193548] # This is the O&M cost per unit
-# popt_om1_, p_cov_lr_ = curve_fit(func_OM_reduction, x_OM   , y_OM)
-
-
-
-# # we get data from the OCED NEA 2016 data: https://www.oecd-nea.org/upload/docs/application/pdf/2019-12/7213-smrs.pdf
-# OM_data = pd.read_excel('src/O&M_OCED_NEA_2016.xlsx') 
-# Power_OM = OM_data['Power'].tolist()
-# OM_cost_2016 = OM_data['O&M cost (total): 2016'].tolist()
-
-# multiply the cost by inflation multiplier (adjust from 2016 to 2022)
-# inf_mult_16_22 = 117.965/98.238
-# OM_cost_2022 = inf_mult_16_22 * np.array(OM_cost_2016)

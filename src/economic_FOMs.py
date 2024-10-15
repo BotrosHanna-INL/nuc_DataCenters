@@ -80,13 +80,6 @@ def tot_TCI_multiple_reactors_starting_from_BOAK_thermal (P_thermal, interest_ra
 
 
 
-# 1000, 6721
-#100, 6468
-#10, 5361
-#1: 3639
-
-# print((tot_TCI_multiple_reactors_starting_from_FOAK (P, 0.06, N))/(P*N*1000))
-# print((tot_TCI_multiple_reactors_starting_from_BOAK (P, 0.06, N))/(P*N*1000))
 
 
 #starting from the second reactor
@@ -147,21 +140,6 @@ def level_cost_of_energy_starting_from_BOAK_thermal( interest_rate, P_thermal, n
 
 
 
-# TCI for a mix of reactors
-
-# def tot_TCI_multiple_reactors_mix (power_list, interest_rate, num_reactors_list):
-#     tot_TCI_for_specific_reactor_power_list = []
-    
-#     for i in range(len(power_list)):
-#         tot_TCI_for_specific_reactor_power = tot_TCI_multiple_reactors (power_list[i], interest_rate, num_reactors_list[i])
-#         tot_TCI_for_specific_reactor_power_list.append(tot_TCI_for_specific_reactor_power)
-        
-#     return sum(tot_TCI_for_specific_reactor_power_list)
-
-
-
-# TCI for a mix of reactors (starting from BOAK)
-
 
 """
 
@@ -193,44 +171,6 @@ def tot_TCI_multiple_reactors_mix_starting_from_BOAK_thermal(power_list, interes
         
     return sum(tot_TCI_for_specific_reactor_power_list)
 
-
-
-
-
-
-
-
-
-
-
-# def level_cost_of_energy_reactor_mix( interest_rate, power_list, num_reactors_list,\
-#     list_of_generated_MWh_per_year_from_all_reactors_per_demand, list_of_sold_electricity_MWh_per_year_from_all_reactors, elec_price,\
-#         list_of_OM_cost_per_year_all_reactors):
-    
-#     sum_cost = 0 # initialization 
-#     sum_elec = 0 # initialization 
-           
-#     for year in range( len(list_of_generated_MWh_per_year_from_all_reactors_per_demand)):
-#         if year == 0:
-#             cap_cost =  tot_TCI_multiple_reactors_mix(power_list, interest_rate, num_reactors_list)
-#             OM_cost_per_year = 0
-#             elec_gen = 0
-#             revenue = 0
-        
-#         elif year > 0:
-         
-#             cap_cost = 0 
-            
-#             OM_cost_per_year =  list_of_OM_cost_per_year_all_reactors[year-1]
-#             revenue = elec_price * list_of_sold_electricity_MWh_per_year_from_all_reactors[year-1]
-#             elec_gen =  list_of_generated_MWh_per_year_from_all_reactors_per_demand[year-1]
-        
-#         sum_cost += (cap_cost + OM_cost_per_year - revenue) / ((1 +interest_rate)**(year) ) 
-#         sum_elec += elec_gen/ ((1 + interest_rate)**year) 
-    
-#     LCOE =  sum_cost/ sum_elec
-#     # print("LCOE NOW is: ", LCOE)
-#     return LCOE
 
 
 def level_cost_of_energy_reactor_mix_starting_from_BOAK( interest_rate, power_list, num_reactors_list,\
