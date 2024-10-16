@@ -1,4 +1,4 @@
-![image info](./icons/![image info](./pictures/image.png))
+![image info](./icons/![image info](pictures/image.png))
 
 
 ## Optimizing Reactor Sizes for Data Center Energy Demands: Balancing Economies of Scale, Mass Production, and Availability Requirements
