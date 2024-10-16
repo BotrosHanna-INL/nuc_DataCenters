@@ -1,3 +1,6 @@
+![image info](./icons/![image info](./pictures/image.png))
+
+
 ## Optimizing Reactor Sizes for Data Center Energy Demands: Balancing Economies of Scale, Mass Production, and Availability Requirements
 This tool, motivated by the rising interest in nuclear energy for data centers and other applications with high service availability needs, assesses the trade-offs between economies of scale and mass production to identify optimal reactor sizes.
 
