@@ -5,7 +5,7 @@ While some advocates argue that large plants are ideal for providing gigawatts o
 
 A framework is developed to determine the optimal reactor power sizes with minimum LCOE for data centers, considering factors like demand, availability requirements, whether the plant powers only the data center or also exports electricity, electricity price, and interest rate. It was also found that based on the demand, a mix of reactor sizes may be ideal.
 
-This tool was used to produce the results published here [https://www.mdpi.com/1996-1073/17/20/5073]
+This tool was used to produce the results published [here] (https://www.mdpi.com/1996-1073/17/20/5073)
 
 Citation: Hanna, B.N.; Abou-Jaoude, A.; Guaita, N.; Talbot, P.; Lohse, C. Navigating Economies of Scale and Multiples for Nuclear-Powered Data Centers and Other Applications with High Service Availability Needs. Energies 2024, 17, 5073. https://doi.org/10.3390/en17205073
 
@@ -14,4 +14,4 @@ For more info contact botros.hanna@inl.gov, abdalla.aboujaoude@inl.gov
 
 
 ## Usage
-Results similar to the Energies paper [https://www.mdpi.com/1996-1073/17/20/5073] can be reproduced by running the Jupyter notebooks (.ipynb files).
+Results similar to the Energies [paper] (https://www.mdpi.com/1996-1073/17/20/5073) can be reproduced by running the Jupyter notebooks (.ipynb files).
