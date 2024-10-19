@@ -118,9 +118,9 @@ def initial_population(power_list, sol_per_pop):
 
 
 def on_gen(ga_instance):
-    # pass
-    print("Schedule Generation : ", ga_instance.generations_completed,  ga_instance.best_solution()[0], ga_instance.best_solution()[1])
-    print(ga_instance.generations_completed, ga_instance.population)
+    pass
+    # print("Schedule Generation : ", ga_instance.generations_completed,  ga_instance.best_solution()[0], ga_instance.best_solution()[1])
+    # print(ga_instance.generations_completed, ga_instance.population)
     
 
 def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the power list here includes all the values of power (with repetition)
@@ -190,7 +190,7 @@ def optimize_schedule(power_list,  levelization_period_weeks ): # Note that the 
     
     ga_instance.run()
     end_time = time.time() 
-    print(f"Nu of Gs passed is {ga_instance.generations_completed}")
+    # print(f"Nu of Gs passed is {ga_instance.generations_completed}")
     
     # ga_instance.plot_fitness()
     
