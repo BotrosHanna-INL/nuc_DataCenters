@@ -126,6 +126,15 @@ def calculate_schedule_multiple_reactors_weeks_approach(num_reactors, power, lev
     return  t_list,  P_list_tot, fullPower_duration 
 
 
+# This is used to calculate the average of capacity factor each period (e.g. a year)
+def calculate_averages(numbers, group_size):
+    averages = []
+    for i in range(0, len(numbers), group_size):
+        group = numbers[i:i+group_size]
+        if len(group) == group_size:
+            averages.append(sum(group) / group_size)
+    return averages
+
 
 # calculate the capacity factor of muliple reactors at each timestep (depending on whether the reactor is running or down)
 def capacity_factor_weeks_approach(num_reactors, power1,levelization_period_weeks, demand):
@@ -151,7 +160,11 @@ def capacity_factor_weeks_approach(num_reactors, power1,levelization_period_week
     tot_actual_output_t =  sum(power_array_excludingRampUp)
     capacity_factor_t = tot_actual_output_t/tot_nom_output_t 
 
+    # Replace any number larger than 1 with 1 (CF has to be larger than 1)
+    capacity_factor_t = [1 if num > 1 else num for num in capacity_factor_t]
     
+    # capacity factor each year
+    yearly_CFs = calculate_averages(capacity_factor_t, 52)
 
     tot_nom_output = tot_nom_output_t * (len(times_array_excludingRampUp)) # total power per day of all reactors multiplied by the number of days
     
@@ -227,33 +240,41 @@ def capacity_factor_weeks_approach(num_reactors, power1,levelization_period_week
     MW_hours_generated_per_year_per_demand = list(yearly_production_per_demand.values())
     MW_hours_excess_per_year = list(yearly_excess_energy.values())
     return times_array_excludingRampUp, capacity_factor_t, overall_capacity_factor,\
-        MW_hours_generated_per_year_total, MW_hours_generated_per_year_per_demand, MW_hours_excess_per_year
+        MW_hours_generated_per_year_total, MW_hours_generated_per_year_per_demand, MW_hours_excess_per_year, yearly_CFs
   
   
 # calculate the number of reactors needed to reach a specific capacity factor of muliple reactors at each timestep (depending on whether the reactor is running or down)
                  
 def num_reactors_needed_for_capacity_factor_weeks_apprioach(overall_capacity_factor_criteria, min_capacity_factor_criteria,\
-     power, levelization_period_weeks, demand_0):
+     yearly_CF_criteria, power, levelization_period_weeks, demand_0):
     fuel_lifetime_weeks = fuel_cycle_length(power)
     refueling_period_weeks = refueling_duration_estimate(power)
 
     refueling_to_fuel_cycle_ratio =  refueling_period_weeks/fuel_lifetime_weeks
-    maximum_criteria = max(overall_capacity_factor_criteria, min_capacity_factor_criteria)
+    maximum_criteria = max(yearly_CF_criteria, overall_capacity_factor_criteria, min_capacity_factor_criteria)
+    
     approximate_capacity_factor = 1 -refueling_to_fuel_cycle_ratio
     
     # initialize the number of reactors to satisfy the capacity factor
     num_reactors_0 =  max (1, int(np.floor(( np.ceil( demand_0 /power))*maximum_criteria/approximate_capacity_factor)) - 1) # I subtract 1 because I want at least 2 ietration before getting to the solution
-
+    
+    # print(np.ceil( demand_0 /power))
     for  num_reactors in np.linspace( num_reactors_0 , 5*num_reactors_0, 4*num_reactors_0+1):
-        
         capacity_factor_results = (capacity_factor_weeks_approach(int(num_reactors), power, levelization_period_weeks, demand_0 ))
 
         # times_array_excludingRampUp = capacity_factor_results[0]
         capacity_factor_min =    min (capacity_factor_results[1])
         overall_capacity_factor   =   capacity_factor_results[2]
+        min_yearlyCF = min (capacity_factor_results[6])
+        # print(min_yearlyCF)
         if  overall_capacity_factor>=  overall_capacity_factor_criteria:
             if capacity_factor_min >= min_capacity_factor_criteria:
-                num_reactors_final = num_reactors
-                break
+                if min_yearlyCF >= yearly_CF_criteria: 
+                    num_reactors_final = num_reactors
+                    break
 
     return num_reactors_final 
+
+
+
+
